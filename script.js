@@ -149,14 +149,18 @@ function drawPlots(values, bins) {
   // A constant dataset needs a nonzero plotting interval.
   const start = min === max ? min - 0.5 : min;
   const end = min === max ? max + 0.5 : max;
+
+  // Calculate the bin width and extend the final boundary slightly
+  // to ensure the maximum observation is included.
   const binSize = (end - start) / bins;
+  const adjustedEnd = end + binSize * 1e-9;
 
   const histogramTrace = {
     type: "histogram",
     x: values,
     xbins: {
       start,
-      end,
+      end: adjustedEnd,
       size: binSize,
     },
     marker: {
