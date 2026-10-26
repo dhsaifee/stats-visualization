@@ -215,7 +215,9 @@ function drawPlots(values, bins) {
     yaxis: {
       title: "Frequency",
       rangemode: "tozero",
-      dtick: 1,
+      tickmode: "auto",
+      nticks: 8,
+      tickformat: "d",
       automargin: true,
     },
     bargap: 0.025,
