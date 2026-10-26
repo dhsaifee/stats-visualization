@@ -12,9 +12,8 @@ const statsMessage = document.getElementById("stats-message");
 const statsResults = document.getElementById("stats-results");
 
 // ------------------------------------------------------------
-// Parse user-entered observations.
-// Accept commas, spaces, tabs, and newlines as separators.
-// Invalid entries are ignored and reported to the user.
+// Parse observations separated by commas or whitespace.
+// Ignore and report invalid entries.
 // ------------------------------------------------------------
 function parseNumbers(text) {
   const tokens = text
@@ -38,9 +37,7 @@ function parseNumbers(text) {
 }
 
 // ------------------------------------------------------------
-// Compute percentiles using NumPy's default "linear" method.
-// The position is (n - 1) * p, with interpolation between
-// neighboring sorted observations when necessary.
+// NumPy-compatible linear percentile interpolation.
 // ------------------------------------------------------------
 function percentile(sorted, p) {
   const position = (sorted.length - 1) * p;
@@ -52,22 +49,21 @@ function percentile(sorted, p) {
 }
 
 // ------------------------------------------------------------
-// Calculate the nine statistics.
-// Population standard deviation divides by n, not n - 1.
-// Tukey whiskers are the most extreme observed values
-// within the 1.5 * IQR fences, not the fences themselves.
+// Calculate descriptive statistics.
+// Standard deviation uses the population definition.
+// Whiskers are actual observations within Tukey fences.
 // ------------------------------------------------------------
 function computeStats(values) {
   const n = values.length;
   const sorted = [...values].sort((a, b) => a - b);
 
   const mean = values.reduce((sum, x) => sum + x, 0) / n;
-  const median = percentile(sorted, 0.5);
 
   const variance = values.reduce((sum, x) => sum + (x - mean) ** 2, 0) / n;
 
   const std = Math.sqrt(variance);
   const q1 = percentile(sorted, 0.25);
+  const median = percentile(sorted, 0.5);
   const q3 = percentile(sorted, 0.75);
   const iqr = q3 - q1;
 
@@ -75,6 +71,7 @@ function computeStats(values) {
   const upperFence = q3 + 1.5 * iqr;
 
   const lowerWhisker = sorted.find((x) => x >= lowerFence);
+
   const upperWhisker = sorted.findLast((x) => x <= upperFence);
 
   return {
@@ -91,14 +88,14 @@ function computeStats(values) {
 }
 
 // ------------------------------------------------------------
-// Format numbers to three significant digits.
+// Format statistics to three significant digits.
 // ------------------------------------------------------------
 function formatNumber(value) {
   return Number(value.toPrecision(3)).toString();
 }
 
 // ------------------------------------------------------------
-// Use textContent so user inputs cannot inject HTML.
+// Display statistics without inserting user-generated HTML.
 // ------------------------------------------------------------
 function displayStats(stats) {
   const rows = [
@@ -134,47 +131,93 @@ function displayStats(stats) {
 }
 
 // ------------------------------------------------------------
-// Draw the histogram and box plot.
-// Plotly handles rendering, zooming, and responsive resizing.
+// Calculate histogram frequencies explicitly.
+//
+// Bins have equal widths.
+// Every observation is assigned to exactly one bin.
+// The maximum observation belongs to the final bin.
 // ------------------------------------------------------------
-function drawPlots(values, bins) {
-  const sorted = [...values].sort((a, b) => a - b);
-  const stats = computeStats(values);
+function computeHistogram(values, bins) {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
 
-  // Histogram: equal-width bins, matching the notebook's
-  // requested number of bins and approximate bar spacing.
-  const min = sorted[0];
-  const max = sorted[sorted.length - 1];
-
-  // A constant dataset needs a nonzero plotting interval.
+  // Avoid zero-width bins for identical observations.
   const start = min === max ? min - 0.5 : min;
   const end = min === max ? max + 0.5 : max;
+  const binWidth = (end - start) / bins;
 
-  // Calculate the bin width and extend the final boundary slightly
-  // to ensure the maximum observation is included.
-  const binSize = (end - start) / bins;
-  const adjustedEnd = end + binSize * 1e-9;
+  const frequencies = Array(bins).fill(0);
 
+  for (const value of values) {
+    // Clamp the index so the maximum is included.
+    const index = Math.max(
+      0,
+      Math.min(bins - 1, Math.floor((value - start) / binWidth)),
+    );
+
+    frequencies[index]++;
+  }
+
+  const centers = [];
+  const labels = [];
+
+  for (let i = 0; i < bins; i++) {
+    const lower = start + i * binWidth;
+    const upper = start + (i + 1) * binWidth;
+
+    centers.push((lower + upper) / 2);
+
+    labels.push(`${formatNumber(lower)} to ${formatNumber(upper)}`);
+  }
+
+  return {
+    centers,
+    frequencies,
+    labels,
+    binWidth,
+    start,
+    end,
+  };
+}
+
+// ------------------------------------------------------------
+// Draw histogram and box plot.
+// ------------------------------------------------------------
+function drawPlots(values, bins) {
+  const stats = computeStats(values);
+  const histogram = computeHistogram(values, bins);
+
+  // Use a bar trace with explicitly calculated frequencies.
+  // This avoids Plotly histogram boundary ambiguities.
   const histogramTrace = {
-    type: "histogram",
-    x: values,
-    xbins: {
-      start,
-      end: adjustedEnd,
-      size: binSize,
-    },
+    type: "bar",
+    x: histogram.centers,
+    y: histogram.frequencies,
+    width: histogram.binWidth,
+    customdata: histogram.labels,
     marker: {
       color: "lightblue",
       line: { color: "white", width: 0.5 },
     },
-    autobinx: false,
-    hovertemplate: "Number: %{x}<br>Frequency: %{y}<extra></extra>",
+    hovertemplate: "Bin: %{customdata}<br>" + "Frequency: %{y}<extra></extra>",
   };
 
   const histogramLayout = {
-    title: { text: "Histogram", font: { size: 17 } },
-    xaxis: { title: "Number", automargin: true },
-    yaxis: { title: "Frequency", automargin: true },
+    title: {
+      text: "Histogram",
+      font: { size: 17 },
+    },
+    xaxis: {
+      title: "Number",
+      range: [histogram.start, histogram.end],
+      automargin: true,
+    },
+    yaxis: {
+      title: "Frequency",
+      rangemode: "tozero",
+      dtick: 1,
+      automargin: true,
+    },
     bargap: 0.025,
     margin: { l: 55, r: 15, t: 55, b: 55 },
     paper_bgcolor: "white",
@@ -182,12 +225,8 @@ function drawPlots(values, bins) {
     showlegend: false,
   };
 
-  // Box plot: use our computed quartiles and Tukey whiskers
-  // so the chart agrees with the displayed statistics.
-  const outliers = values.filter(
-    (x) => x < stats.lowerWhisker || x > stats.upperWhisker,
-  );
-
+  // Box plot uses the same calculated quartiles and whiskers
+  // as the displayed descriptive statistics.
   const boxTrace = {
     type: "box",
     q1: [stats.q1],
@@ -204,7 +243,7 @@ function drawPlots(values, bins) {
     hoverinfo: "skip",
   };
 
-  // Separate red diamond marker for the mean.
+  // Red diamond represents the arithmetic mean.
   const meanTrace = {
     type: "scatter",
     mode: "markers",
@@ -220,13 +259,19 @@ function drawPlots(values, bins) {
   };
 
   const boxLayout = {
-    title: { text: "Box Plot", font: { size: 17 } },
+    title: {
+      text: "Box Plot",
+      font: { size: 17 },
+    },
     xaxis: {
       range: [-0.7, 0.7],
       showticklabels: false,
       zeroline: false,
     },
-    yaxis: { title: "Number", automargin: true },
+    yaxis: {
+      title: "Number",
+      automargin: true,
+    },
     margin: { l: 55, r: 15, t: 55, b: 55 },
     paper_bgcolor: "white",
     plot_bgcolor: "white",
@@ -245,7 +290,7 @@ function drawPlots(values, bins) {
 }
 
 // ------------------------------------------------------------
-// Update the application.
+// Update statistics and visualizations.
 // ------------------------------------------------------------
 function update() {
   const { values, badTokens } = parseNumbers(numbersInput.value);
@@ -256,10 +301,10 @@ function update() {
 
   if (values.length === 0) {
     statsResults.replaceChildren();
+
     statsMessage.textContent +=
       (badTokens.length ? " " : "") + "Enter at least one numeric value.";
 
-    // Clear outdated charts when no valid observations remain.
     Plotly.purge("histogram-chart");
     Plotly.purge("boxplot-chart");
     return;
@@ -267,14 +312,11 @@ function update() {
 
   displayStats(computeStats(values));
 
-  // Redraw both charts using the current observations and bins.
   drawPlots(values, Number(binsSlider.value));
 }
 
 // ------------------------------------------------------------
 // Register interactions.
-// The Update button recalculates statistics.
-// The slider displays its current number of bins.
 // ------------------------------------------------------------
 updateButton.addEventListener("click", update);
 
@@ -284,7 +326,7 @@ binsSlider.addEventListener("input", () => {
 
 binsSlider.addEventListener("change", update);
 
-// Initialize the application with the sample dataset.
+// Initialize with the notebook's sample dataset.
 numbersInput.value = INITIAL_DATA;
 
 update();
