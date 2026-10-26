@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Statistics Visualizations</title>
+
+    <!-- Local stylesheet for the application -->
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- MathJax renders LaTeX formulas in the browser. -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["\\(", "\\)"]],
+          displayMath: [["\\[", "\\]"]],
+        },
+      };
+    </script>
+
+    <!-- Plotly.js: interactive histogram and box plot -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"
+    ></script>
+  </head>
+
+  <body>
+    <main>
+      <h2>Interactive Descriptive Statistics and Distribution Visualization</h2>
+
+      <p>
+        Compute key <strong>descriptive statistics</strong> for a user-provided
+        numeric dataset and visualize the distribution using a
+        <strong>histogram</strong> and a <strong>box plot</strong>.
+      </p>
+
+      <hr />
+
+      <h3>Descriptive Statistics</h3>
+
+      <p>
+        For a dataset with values \(x_1, x_2, \ldots, x_n\), the following
+        metrics are calculated:
+      </p>
+
+      <p><strong>Count</strong></p>
+      \[ n = \text{number of observations} \]
+
+      <p><strong>Mean</strong></p>
+      \[ \mu = \frac{1}{n} \sum_{i=1}^{n} x_i \]
+
+      <p><strong>Median</strong></p>
+      \[ \tilde{x} = \begin{cases} x_{(n+1)/2}, & \text{if } n \text{ is odd} \\
+      \frac{x_{(n/2)} + x_{(n/2+1)}}{2}, & \text{if } n \text{ is even}
+      \end{cases} \]
+
+      <p><strong>Population Standard Deviation</strong></p>
+      \[ \sigma = \sqrt{\frac{1}{n} \sum_{i=1}^{n}(x_i-\mu)^2} \]
+
+      <p><strong>First Quartile (25th Percentile)</strong></p>
+      \[ Q_1 = P_{25}(x) \]
+
+      <p><strong>Third Quartile (75th Percentile)</strong></p>
+      \[ Q_3 = P_{75}(x) \]
+
+      <p><strong>Interquartile Range (IQR)</strong></p>
+      \[ \text{IQR} = Q_3-Q_1 \]
+
+      <p><strong>Lower Whisker (Tukey Definition)</strong></p>
+      \[ \text{Lower Whisker} = \min\left\{x_i \mid x_i \ge
+      Q_1-1.5\,\text{IQR}\right\} \]
+
+      <p><strong>Upper Whisker (Tukey Definition)</strong></p>
+      \[ \text{Upper Whisker} = \max\left\{x_i \mid x_i \le
+      Q_3+1.5\,\text{IQR}\right\} \]
+
+      <hr />
+
+      <h3>Visualizations</h3>
+
+      <p><strong>Histogram</strong></p>
+      <p>
+        Displays the empirical frequency distribution of the data with a
+        user-controlled number of bins and adjustable bar spacing.
+      </p>
+
+      <p><strong>Box Plot</strong></p>
+      <p>Summarizes the distribution using:</p>
+
+      <ul>
+        <li>Median (central line)</li>
+        <li>Interquartile range (box)</li>
+        <li>Mean (diamond marker)</li>
+        <li>Whiskers defined by the \(1.5 \times \text{IQR}\) rule</li>
+        <li>Outliers shown as individual points</li>
+      </ul>
+
+      <p>
+        Together, these statistics and plots provide a concise view of
+        <strong>central tendency</strong>, <strong>dispersion</strong>,
+        <strong>distribution shape</strong>, and <strong>outliers</strong>.
+      </p>
+
+      <!-- Interactive descriptive statistics application -->
+      <section
+        id="statistics-app"
+        aria-label="Descriptive statistics calculator"
+      >
+        <div class="input-group">
+          <label for="numbers-input">Numbers:</label>
+          <textarea
+            id="numbers-input"
+            rows="2"
+            placeholder="Enter numbers separated by commas, spaces, or newlines"
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <div class="slider-group">
+          <label for="bins-slider"
+            >Bins: <output id="bins-value">15</output></label
+          >
+          <input
+            type="range"
+            id="bins-slider"
+            min="1"
+            max="90"
+            step="1"
+            value="15"
+          />
+        </div>
+
+        <button type="button" id="update-button">Update</button>
+
+        <!-- Warnings and validation messages -->
+        <div id="stats-message" role="status" aria-live="polite"></div>
+
+        <!-- JavaScript will insert the nine statistics here -->
+        <div id="stats-results" aria-live="polite"></div>
+
+        <!-- Responsive visualization area -->
+        <div class="charts-container">
+          <div class="chart-panel">
+            <div id="histogram-chart" class="chart"></div>
+          </div>
+
+          <div class="chart-panel">
+            <div id="boxplot-chart" class="chart"></div>
+          </div>
+        </div>
+      </section>
+      <footer class="app-footer">
+        <p>
+          Built using Plotly.js (MIT License) and MathJax (Apache License 2.0).
+        </p>
+      </footer>
+    </main>
+
+    <script defer src="sample-data.js"></script>
+    <script defer src="script.js"></script>
+  </body>
+</html>
